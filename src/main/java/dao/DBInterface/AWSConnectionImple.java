@@ -1,13 +1,15 @@
-package dao;
+package dao.DBInterface;
+
+// DB 커넥터 2. 인터페이스의 구현체
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
 
-public class AWSConnectionImple implements ConnectionImple{
+public class AWSConnectionImple implements ConnectionImple {
     @Override
-    public Connection makeConnection() throws ClassNotFoundException, SQLException {    // 클래스와 하는일은 완전히 동일해요
+    public Connection makeConnection() throws ClassNotFoundException, SQLException {
         Map<String, String> env = System.getenv();
         String dbHost = env.get("DB_HOST");
         String dbUser = env.get("DB_USER");
