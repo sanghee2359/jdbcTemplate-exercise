@@ -1,4 +1,4 @@
-package dao.DBInterface;
+package dao;
 
 // DB 커넥터 2. 인터페이스의 구현체
 
