@@ -1,14 +1,19 @@
 package dao;
 
 import dao.DBInterface.ConnectionImple;
+import dao.Strategy.DeleteAllStrategy;
+import dao.Strategy.StatementStrategy;
 import domain.User;
 
 import java.sql.*;
-//try-catch-finally 부터 시작할게요
-// try catch finally가 너무 계속 반복되면서 저희처럼 복붙하다보면 실수가 일어날 수 있어요
-// 변하지 않고 계속 반복되는 걸 컨텍스트 context라고 한답니다
-// 바뀌는 부분을 전략이라고 하는데, 외부 인터페이스를 만들어서 작업을 위임하는 방식이에요
-// 메소드로 추출해볼게요
+//try-catch-finally 까지 진행하고 `바뀌는 부분`만 Strategy에 정리했습니다.
+
+// try catch finally가 너무 계속 반복되면서 저희처럼 복붙하다보면 실수가 일어날 수 있어요.
+// 이걸 휴먼에러라고 하는데, 이걸 막기위해 메소드로 정리했어요.
+// 이렇듯 바뀌지 않고 계속해서 반복되는 작업을 컨텍스트 context라고 한답니다.
+// 바뀌않는 컨텍스트안에서 계속해서 바뀌는 흐름이 있었어요. add() get() 에서 sql문이 서로 다르죠.
+// 이렇듯 바뀌는 부분을 전략이라고 하는데, 외부 인터페이스를 만들어서 작업을 위임하는 방식이에요
+
 public class UserDao {
     private ConnectionImple connectionImple; // 인터페이스
     // 생성자를 입력안했네요. DB커넥터를 초기화하는 부분
@@ -16,13 +21,40 @@ public class UserDao {
         this.connectionImple = connectionImple;
     }
 
+    // 바뀌지 않는 부분
+    public void jdbcContextWithStatementStrategy(StatementStrategy stmt) throws SQLException{
+        Connection c = null;
+        PreparedStatement pstmt = null;
+        try {
+            c = connectionImple.makeConnection();
+            pstmt = stmt.makePreparedStatement(c);
+            pstmt.executeUpdate();
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        } finally { // error가 나도 실행되는 블록
+            if(pstmt != null) { try { pstmt.close();} catch (SQLException e) {}}
+            if(c != null){ try {c.close();} catch (SQLException e) {}}
+        }
+    }
     // getcount , deleteall 메소드 작성해볼게요.
     public void deleteAll() throws SQLException, ClassNotFoundException {    // delete는 add와 로직이 비슷합니다
+        jdbcContextWithStatementStrategy(new DeleteAllStrategy());
+    }
+    // Add역시 jdbcContextWithStatementStrategy 메소드로 바꿀 수 있는데, 한번 시도해보시길 추런드립니다.
+    // 힌트는 jdbcConext 이 메소드에 무엇을 파라매터로 받고, 무엇을 리턴하는지 살펴보시거나
+    // 저희 회고에 정리되어 있으니 읽어보시는 것도 추천드려요
+    public void add(User user) throws ClassNotFoundException, SQLException
+    {
+        // db연결 겹치는 부분 -> interface로 수정
         Connection c = null;
         PreparedStatement ps = null;
         try {
             c = connectionImple.makeConnection();
-            ps = c.prepareStatement("DELETE FROM users");
+            ps = c.prepareStatement("INSERT INTO users(id, name, password) VALUES (?,?,?);");
+            ps.setString(1, user.getId());
+            ps.setString(2, user.getName());
+            ps.setString(3, user.getPassword());
+
             ps.executeUpdate();
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
@@ -80,37 +112,6 @@ public class UserDao {
             }
         }
         return count;
-    }
-    public void add(User user) throws ClassNotFoundException, SQLException { // user값을 넣는 메소드
-        // db연결 겹치는 부분 -> interface로 수정
-        Connection c = null;
-        PreparedStatement ps = null;
-        try {
-            c = connectionImple.makeConnection();
-            ps = c.prepareStatement("INSERT INTO users(id, name, password) VALUES (?,?,?);");
-            ps.setString(1, user.getId());
-            ps.setString(2, user.getName());
-            ps.setString(3, user.getPassword());
-
-            ps.executeUpdate();
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } finally {
-            if(ps != null){
-                try {
-                    ps.close();
-                } catch (SQLException e) {
-                }
-            }
-            if(c != null){
-                try {
-                    c.close();
-                } catch (SQLException e) {
-                }
-            }
-        }
     }
     // 여기도 id를 입력받아야해요
     // try-catch-finally 중 finally는 예외가 발생하더라도 무조건 실행하는 부분이라 리소스를 반환하는 로직을 담아요
